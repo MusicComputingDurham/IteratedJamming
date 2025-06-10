@@ -1,0 +1,57 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Tiny Realtime Room (GUN)</title>
+<style>
+ body{font:14px/1.4 system-ui;margin:2rem auto;max-width:640px}
+ #log{border:1px solid #ccc;height:300px;overflow:auto;padding:.5rem;margin-top:.5rem}
+ input,button{padding:.3rem .5rem;font:inherit}
+</style>
+
+<h1>Realtime room</h1>
+<label>Room&nbsp;ID <input id="room" placeholder="e.g. 42"></label>
+<button id="join">Join</button>
+
+<section id="chat" hidden>
+  <div id="log"></div>
+  <input id="msg" placeholder="type message">
+  <button id="send">Send</button>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<script>
+    // quickest drop-in replacement: Render hosts a public mirror
+const gun = Gun({
+  peers: [
+    'http://localhost:8765/gun',
+    'https://gun-server-48md.onrender.com/gun',
+  ]
+});
+
+const $ = id => document.getElementById(id);
+let roomRef = null;
+
+$('join').onclick = () => {
+  const id = $('room').value.trim();
+  if (!id) return;
+  roomRef = gun.get(id);      // everybody on the same ID = same room
+  $('chat').hidden = false;
+
+  // live feed
+  roomRef.map().on((data, key) => {
+    if (document.getElementById(key)) return;        // de-dupe
+    const div = document.createElement('div');
+    div.textContent = data.text;
+    div.id = key;
+    $('log').appendChild(div);
+    $('log').scrollTop = $('log').scrollHeight;
+  });
+};
+
+$('send').onclick = () => {
+  if (!roomRef) return alert('Join a room first');
+  const txt = $('msg').value.trim();
+  if (!txt) return;
+  roomRef.set({ text: txt, ts: Date.now() });        // broadcast
+  $('msg').value = '';
+};
+</script>
